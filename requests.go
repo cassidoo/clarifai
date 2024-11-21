@@ -33,8 +33,7 @@ type TagRequest struct {
 	Model    string   `json:"model,omitempty"`
 }
 
-// TagResp represents the expected JSON response from /tag/
-type TagResp struct {
+type BaseTagResp struct {
 	StatusCode    string `json:"status_code"`
 	StatusMessage string `json:"status_msg"`
 	Meta          struct {
@@ -44,24 +43,52 @@ type TagResp struct {
 			Config    string      `json:"config"`
 		}
 	}
-	Results []TagResult
+}
+
+// ImageTagResp represents the expected JSON response from /tag/ for images
+type ImageTagResp struct {
+	BaseTagResp
+	Results []ImageTagResult
+}
+
+// ImageTagResp represents the expected JSON response from /tag/ for images
+type VideoTagResp struct {
+	BaseTagResp
+	Results []VideoTagResult
 }
 
 // TagResult represents the expected data for a single tag result
-type TagResult struct {
+type BaseTagResult struct {
 	DocID         *big.Int `json:"docid"`
 	URL           string   `json:"url"`
 	StatusCode    string   `json:"status_code"`
 	StatusMessage string   `json:"status_msg"`
 	LocalID       string   `json:"local_id"`
-	Result        struct {
+	DocIDString   string   `json:"docid_str"`
+}
+
+// TagResult represents the expected data for a single tag result
+type ImageTagResult struct {
+	BaseTagResult
+	Result struct {
 		Tag struct {
 			Classes []string  `json:"classes"`
 			CatIDs  []string  `json:"catids"`
 			Probs   []float32 `json:"probs"`
 		}
 	}
-	DocIDString string `json:"docid_str"`
+}
+
+// TagResult represents the expected data for a single tag result
+type VideoTagResult struct {
+	BaseTagResult
+	Result struct {
+		Tag struct {
+			Classes [][]string  `json:"classes"`
+			CatIDs  []string    `json:"catids"`
+			Probs   [][]float32 `json:"probs"`
+		}
+	}
 }
 
 // FeedbackForm is used to send feedback back to Clarifai
@@ -96,7 +123,12 @@ func (client *Client) Info() (*InfoResp, error) {
 }
 
 // Tag allows the client to request tag data on a single, or multiple photos
-func (client *Client) Tag(req TagRequest) (*TagResp, error) {
+func (client *Client) Tag(req TagRequest) (*ImageTagResp, error) {
+	return client.ImageTag(req)
+}
+
+// ImageTag allows the client to request tag data on a single, or multiple photos
+func (client *Client) ImageTag(req TagRequest) (*ImageTagResp, error) {
 	if len(req.URLs) < 1 {
 		return nil, errors.New("Requires at least one url")
 	}
@@ -107,7 +139,25 @@ func (client *Client) Tag(req TagRequest) (*TagResp, error) {
 		return nil, err
 	}
 
-	tagres := new(TagResp)
+	tagres := new(ImageTagResp)
+	err = json.Unmarshal(res, tagres)
+
+	return tagres, err
+}
+
+// VideoTag allows the client to request tag data on a single, or multiple videos
+func (client *Client) VideoTag(req TagRequest) (*VideoTagResp, error) {
+	if len(req.URLs) < 1 {
+		return nil, errors.New("Requires at least one url")
+	}
+
+	res, err := client.commonHTTPRequest(req, "tag", "POST", false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tagres := new(VideoTagResp)
 	err = json.Unmarshal(res, tagres)
 
 	return tagres, err
