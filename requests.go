@@ -29,6 +29,7 @@ type InfoResp struct {
 // TagRequest represents a JSON request for /tag/
 type TagRequest struct {
 	URLs     []string `json:"url"`
+	Files    []string `json:"files,omitempty"`
 	LocalIDs []string `json:"local_ids,omitempty"`
 	Model    string   `json:"model,omitempty"`
 }
@@ -102,6 +103,24 @@ func (client *Client) Tag(req TagRequest) (*TagResp, error) {
 	}
 
 	res, err := client.commonHTTPRequest(req, "tag", "POST", false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tagres := new(TagResp)
+	err = json.Unmarshal(res, tagres)
+
+	return tagres, err
+}
+
+// Tag allows the client to request tag data on a single, or multiple photos
+func (client *Client) TagLocalFile(req TagRequest) (*TagResp, error) {
+	if len(req.Files) < 1 {
+		return nil, errors.New("Requires at least one file")
+	}
+
+	res, err := client.fileHTTPRequest(req, "tag", "",  false)
 
 	if err != nil {
 		return nil, err

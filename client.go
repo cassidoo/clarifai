@@ -10,6 +10,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"mime/multipart"
+	"os"
+	"io"
 )
 
 // Configurations
@@ -88,6 +91,8 @@ func (client *Client) commonHTTPRequest(jsonBody interface{}, endpoint, verb str
 		jsonBody = struct{}{}
 	}
 
+	//
+
 	body, err := json.Marshal(jsonBody)
 
 	if err != nil {
@@ -110,6 +115,11 @@ func (client *Client) commonHTTPRequest(jsonBody interface{}, endpoint, verb str
 	if err != nil {
 		return nil, err
 	}
+	return client.retrieveResponse(res, req, jsonBody, endpoint, verb, retry)
+
+}
+
+func (client *Client) retrieveResponse(res *http.Response, req *http.Request, jsonBody interface{}, endpoint string, verb string, retry bool) ([]byte, error){
 
 	switch res.StatusCode {
 	case 200, 201:
@@ -125,7 +135,12 @@ func (client *Client) commonHTTPRequest(jsonBody interface{}, endpoint, verb str
 			if err != nil {
 				return nil, err
 			}
-			return client.commonHTTPRequest(jsonBody, endpoint, verb, true)
+			if req.Header.Get("Content-Type") == "application/json" {
+				return client.commonHTTPRequest(jsonBody, endpoint, "POST", true)
+			}else {
+				jsonBody := jsonBody.(TagRequest)
+				return client.fileHTTPRequest(jsonBody, endpoint, "", true)
+			}
 		}
 		return nil, errors.New("TOKEN_INVALID")
 	case 429:
@@ -139,6 +154,57 @@ func (client *Client) commonHTTPRequest(jsonBody interface{}, endpoint, verb str
 		return nil, errors.New("UNEXPECTED_STATUS_CODE")
 	}
 }
+
+func (client *Client) fileHTTPRequest(jsonBody TagRequest,  endpoint string, verb string, retry bool) ([]byte, error) {
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	for idx, file := range jsonBody.Files {
+		// don't share file name information
+		fileWriter, err := writer.CreateFormFile("encoded_data", strconv.Itoa(idx))
+		if err != nil {
+			return nil, err
+		}
+		fp, err := os.Open(file)
+
+		if err != nil {
+			return nil, err
+		}
+		_, err = io.Copy(fileWriter, fp)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err := writer.WriteField("op", endpoint)
+
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", client.buildURL(endpoint), body)
+
+	if err != nil {
+		return nil, err
+	}
+
+
+	req.Header.Set("Authorization", "Bearer "+client.AccessToken)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	httpClient := &http.Client{}
+	res, err := httpClient.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return client.retrieveResponse(res, req, jsonBody, endpoint, verb, retry)
+}
+
+
 
 // Helper function to build URLs
 func (client *Client) buildURL(endpoint string) string {
