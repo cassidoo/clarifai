@@ -43,6 +43,17 @@ func main() {
 		fmt.Printf("%+v\n", tag_data) // See what we got!
 	}
 
+	// Tag a base64 image
+	data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAMSURBVBhXY/j//z8ABf4C/qc1gYQAAAAASUVORK5CYII="
+	tag_data, err = client.TagEncoded(clarifai.TagEncodedRequest{
+		EncodedData: data
+	})
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Printf("%+v\n", tag_data)
+	}
+
 	feedback_data, err := client.Feedback(clarifai.FeedbackForm{
 		URLs:    urls,
 		AddTags: []string{"cat", "animal"},

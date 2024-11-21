@@ -33,6 +33,12 @@ type TagRequest struct {
 	Model    string   `json:"model,omitempty"`
 }
 
+type TagEncodedRequest struct {
+	EncodedData string   `json:"encoded_data"`
+	LocalIDs    []string `json:"local_ids,omitempty"`
+	Model       string   `json:"model,omitempty"`
+}
+
 // TagResp represents the expected JSON response from /tag/
 type TagResp struct {
 	StatusCode    string `json:"status_code"`
@@ -95,7 +101,7 @@ func (client *Client) Info() (*InfoResp, error) {
 	return info, err
 }
 
-// Tag allows the client to request tag data on a single, or multiple photos
+// Tag allows the client to request tag data on a single, or multiple url photos
 func (client *Client) Tag(req TagRequest) (*TagResp, error) {
 	if len(req.URLs) < 1 {
 		return nil, errors.New("Requires at least one url")
@@ -109,6 +115,24 @@ func (client *Client) Tag(req TagRequest) (*TagResp, error) {
 
 	tagres := new(TagResp)
 	err = json.Unmarshal(res, tagres)
+
+	return tagres, err
+}
+
+// Tag allows the client to request tag image in encoded format
+func (client *Client) TagEncoded(req TagEncodedRequest) (*TagResp, error) {
+	if len(req.EncodedData) < 1 {
+		return nil, errors.New("Requires an image data")
+	}
+
+	res, err := client.commonHTTPRequest(req, "tag", "POST", false)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tagres := new(TagResp)
+	err = json.Unmarshal(res, &tagres)
 
 	return tagres, err
 }
